@@ -1,0 +1,7 @@
+# Pinned subset for Docker / pip installs without uv/poetry
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+pywemo>=2.1.0
+apscheduler>=3.10.4
+pydantic-settings>=2.6.0
+tenacity>=9.0.0

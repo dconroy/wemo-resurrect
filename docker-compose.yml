@@ -1,0 +1,16 @@
+services:
+  wemo-dashboard:
+    build: .
+    ports:
+      - "8765:8765"
+    environment:
+      WEMO_DATABASE_PATH: /data/wemo_dashboard.db
+      WEMO_LOG_LEVEL: INFO
+      # Optional: set a shared secret and pass Authorization: Bearer from the UI
+      # WEMO_ADMIN_PASSWORD: change-me
+    volumes:
+      - wemo-data:/data
+    restart: unless-stopped
+
+volumes:
+  wemo-data:
