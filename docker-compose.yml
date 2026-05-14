@@ -1,13 +1,17 @@
+# Self-contained run (recommended): one command, one terminal
+# Copy .env.example → .env and edit optional values; Compose loads .env for ${VAR} substitution.
 services:
   wemo-dashboard:
     build: .
+    image: wemo-resurrect:local
+    container_name: wemo-resurrect
+    init: true
     ports:
       - "8765:8765"
     environment:
-      WEMO_DATABASE_PATH: /data/wemo_dashboard.db
-      WEMO_LOG_LEVEL: INFO
-      # Optional: set a shared secret and pass Authorization: Bearer from the UI
-      # WEMO_ADMIN_PASSWORD: change-me
+      WEMO_DATABASE_PATH: ${WEMO_DATABASE_PATH:-/data/wemo_dashboard.db}
+      WEMO_LOG_LEVEL: ${WEMO_LOG_LEVEL:-INFO}
+      WEMO_ADMIN_PASSWORD: ${WEMO_ADMIN_PASSWORD:-}
     volumes:
       - wemo-data:/data
     restart: unless-stopped

@@ -17,13 +17,57 @@ Local-only web dashboard to discover and control legacy Belkin **WeMo** switches
 
 ## Requirements
 
-- Python **3.11+** (Docker image uses **3.12**).
-- Node **20+** (only needed to build the frontend).
+- **Recommended:** [Docker](https://docs.docker.com/get-docker/) with the **Compose** plugin (Docker Desktop includes it). No Python or Node on your machine.
+- **Optional — local development:** Python **3.11+**, Node **20+** (only if you want to edit code without rebuilding the image).
 - Your machine on the **same LAN** as the WeMo devices. Firewalls must allow SSDP multicast and HTTP to the plugs (typically ports like **49152–49153**).
 
-## Quick start (development)
+## Quick start (Docker — one terminal)
 
-From the repository root:
+From the repository root, everything (API, UI, SQLite path inside the container) runs in **one container**:
+
+```bash
+cp .env.example .env   # optional: set WEMO_ADMIN_PASSWORD, WEMO_LOG_LEVEL, etc.
+
+docker compose up --build
+```
+
+Then open **http://127.0.0.1:8765/** on the same machine, or use your host’s LAN IP and port **8765** from a phone or tablet on the same Wi‑Fi. API docs: **http://127.0.0.1:8765/docs**.
+
+- **Foreground (logs in this terminal):** `docker compose up --build`
+- **Background (detach, still one command to start):** `docker compose up --build -d` — follow logs with `docker compose logs -f`
+
+The image builds the React app and bakes it into the container; SQLite lives in the **`wemo-data`** volume (path inside the container defaults to `/data/wemo_dashboard.db`).
+
+### Docker notes
+
+- **WeMo discovery from a container** can be finicky on some hosts (multicast / bridge networking). If discovery finds nothing, use **Add by IP** in the UI; on Linux you can experiment with `network_mode: host` (not supported the same way on Docker Desktop for Mac).
+- **Never** expose port 8765 directly to the public Internet.
+
+## Configuration (environment variables)
+
+Set these in a **`.env`** file next to `docker-compose.yml` (Compose uses it for `${VAR}` substitution), or export them in your shell before `docker compose up`.
+
+| Variable | Default (in compose) | Description |
+| --- | --- | --- |
+| `WEMO_DATABASE_PATH` | `/data/wemo_dashboard.db` | SQLite path **inside the container** (backed by the `wemo-data` volume). |
+| `WEMO_LOG_LEVEL` | `INFO` | Python log level. |
+| `WEMO_ADMIN_PASSWORD` | _(empty)_ | If set, **all** `/api/*` routes except `GET /api/health` require `Authorization: Bearer <password>`. |
+
+When running **without** Docker (`uvicorn` locally), you can also use:
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `WEMO_DASHBOARD_HOST` | `127.0.0.1` | Address uvicorn binds when **not** using LAN bind. |
+| `WEMO_DASHBOARD_PORT` | `8765` | HTTP port (must match how you launch uvicorn). |
+| `WEMO_DASHBOARD_BIND_LAN` | `0` | Set to `1` / `true` to listen on **0.0.0.0** (all interfaces) for Pi / NAS use. |
+
+The Docker image sets **`WEMO_DASHBOARD_BIND_LAN=1`** so the app listens on all interfaces inside the container; you still reach it via the published host port (**8765**).
+
+**Never** expose this service directly to the public Internet. Use it on a trusted home LAN, or put it behind a VPN or reverse proxy you control.
+
+## Optional: local development (no Docker)
+
+Use this only if you are changing Python or frontend code and want faster iteration than `docker compose build`.
 
 ```bash
 python3 -m venv .venv
@@ -31,45 +75,20 @@ source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt -r requirements-dev.txt
 cp .env.example .env          # optional: edit values
 
-# Terminal 1 — API + built UI (after frontend build, see below)
 cd backend
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8765
 ```
 
-Build the UI once (output is copied where uvicorn serves it). **Prebuilt assets are included** under `backend/app/static/`; repeat this step only after you change the frontend:
+After **frontend** changes, rebuild static assets (prebuilt copies exist under `backend/app/static/` until you change the UI):
 
 ```bash
 cd frontend
 npm install
 npm run build
-mkdir -p ../backend/app/static
-rm -rf ../backend/app/static/*
-cp -r dist/* ../backend/app/static/
+rm -rf ../backend/app/static && mkdir -p ../backend/app/static && cp -r dist/. ../backend/app/static/
 ```
 
-Open **http://127.0.0.1:8765/**. API docs: **http://127.0.0.1:8765/docs**.
-
-For UI development with hot reload:
-
-```bash
-cd frontend
-npm run dev
-```
-
-The Vite dev server proxies `/api` to `http://127.0.0.1:8765` (run uvicorn separately).
-
-## Configuration (environment variables)
-
-| Variable | Default | Description |
-| --- | --- | --- |
-| `WEMO_DASHBOARD_HOST` | `127.0.0.1` | Address uvicorn binds when **not** using LAN bind. |
-| `WEMO_DASHBOARD_PORT` | `8765` | HTTP port. |
-| `WEMO_DASHBOARD_BIND_LAN` | `0` | Set to `1` / `true` to listen on **0.0.0.0** (all interfaces) for Pi / NAS use. |
-| `WEMO_ADMIN_PASSWORD` | _(empty)_ | If set, **all** `/api/*` routes except `GET /api/health` require `Authorization: Bearer <password>`. |
-| `WEMO_DATABASE_PATH` | `data/wemo_dashboard.db` | SQLite file path (relative to the **current working directory** when you start uvicorn). |
-| `WEMO_LOG_LEVEL` | `INFO` | Python log level. |
-
-**Never** expose this service directly to the public Internet. Use it on a trusted home LAN, or put it behind a VPN or reverse proxy you control.
+If you use the Vite dev server with hot reload, that is a **second** terminal (`npm run dev` in `frontend/`, with uvicorn still running for `/api`).
 
 ## REST API (summary)
 
@@ -89,14 +108,6 @@ The Vite dev server proxies `/api` to `http://127.0.0.1:8765` (run uvicorn separ
 
 Schedules use **`days_of_week`**: integers **0 = Monday** through **6 = Sunday**, matching APScheduler’s `day_of_week` convention.
 
-## Docker
-
-```bash
-docker compose up --build
-```
-
-Data is stored in the **`wemo-data`** Docker volume at `WEMO_DATABASE_PATH` (`/data/wemo_dashboard.db` in the compose file).
-
 ## Tests
 
 ```bash
@@ -112,7 +123,7 @@ pytest
 
 ## Troubleshooting
 
-- **Discovery finds nothing:** try **Add by IP** from the device’s IPv4 address; ensure your OS firewall allows multicast UDP for SSDP.
+- **Discovery finds nothing:** try **Add by IP** from the device’s IPv4 address; ensure your OS firewall allows multicast UDP for SSDP. From Docker, try host networking on Linux if needed.
 - **Control fails intermittently:** the app retries pywemo calls; extremely old firmware may work better after a power cycle.
 - **Unsupported WeMo models:** pywemo may still discover them with `debug=True` (not wired in the UI); the SOAP fallback only covers classic **BinaryState** switch-style control.
 
