@@ -21,6 +21,18 @@ class Settings(BaseSettings):
     admin_password: str | None = Field(default=None)
     database_path: Path = Field(default=Path("data/wemo_dashboard.db"))
     log_level: str = Field(default="INFO")
+    discovery_ssdp_timeout: float = Field(
+        default=12.0,
+        description="Seconds to wait for SSDP replies during discovery (pywemo ssdp.scan).",
+    )
+
+    @field_validator("discovery_ssdp_timeout", mode="before")
+    @classmethod
+    def discovery_timeout_ok(cls, v: object) -> float:
+        f = float(v)  # type: ignore[arg-type]
+        if f < 3 or f > 120:
+            raise ValueError("WEMO_DISCOVERY_SSDP_TIMEOUT must be between 3 and 120")
+        return f
 
     @field_validator("dashboard_bind_lan", mode="before")
     @classmethod

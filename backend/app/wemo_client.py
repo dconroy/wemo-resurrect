@@ -45,10 +45,15 @@ class WemoClientError(Exception):
     pass
 
 
-def discover_wemos(*, debug: bool = False) -> list[DeviceSnapshot]:
+def discover_wemos(
+    *, debug: bool = False, ssdp_timeout: float | None = None
+) -> list[DeviceSnapshot]:
     """SSDP / UPnP discovery for LAN WeMo devices."""
+    scan_kw: dict = {}
+    if ssdp_timeout is not None:
+        scan_kw["timeout"] = ssdp_timeout
     try:
-        devices = pywemo.discover_devices(debug=debug)
+        devices = pywemo.discover_devices(debug=debug, **scan_kw)
     except Exception as exc:  # pragma: no cover - network
         LOG.warning("pywemo discovery failed: %s", exc)
         raise WemoClientError(f"Discovery failed: {exc}") from exc

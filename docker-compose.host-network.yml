@@ -1,0 +1,10 @@
+# Linux: merge this file so the container shares the host network stack (SSDP / WeMo discovery works).
+# Not supported the same way on Docker Desktop for Mac/Windows.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.host-network.yml up --build
+#
+# Port publishing is ignored in host mode; open http://127.0.0.1:8765 on the host (or the host LAN IP).
+
+services:
+  wemo-dashboard:
+    network_mode: host

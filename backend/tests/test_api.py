@@ -58,6 +58,20 @@ def test_schedule_crud(client):
     assert r5.json() == []
 
 
+def test_discover_returns_envelope_with_zero_found(client, monkeypatch):
+    from app.routers import discover as dmod
+
+    monkeypatch.setattr(dmod, "discover_wemos", lambda **_: [])
+
+    r = client.post("/api/discover")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["discovered_this_run"] == 0
+    assert body["devices"] == []
+    assert body["message"]
+    assert "SSDP" in body["message"] or "Add by IP" in body["message"]
+
+
 def test_reads_require_auth_when_password_set(tmp_path, monkeypatch):
     monkeypatch.setenv("WEMO_DATABASE_PATH", str(tmp_path / "read.sqlite"))
     monkeypatch.setenv("WEMO_ADMIN_PASSWORD", "tok")
@@ -94,4 +108,3 @@ def test_admin_password_blocks_mutations(tmp_path, monkeypatch):
             assert r2.status_code in (200, 502)
     finally:
         get_settings.cache_clear()
-

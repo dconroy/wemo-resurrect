@@ -28,6 +28,7 @@ export default function App() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [tokenInput, setTokenInput] = useState(getToken());
   const [manualIp, setManualIp] = useState("");
   const [manualName, setManualName] = useState("");
@@ -68,6 +69,7 @@ export default function App() {
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
     setMsg(null);
+    setInfo(null);
     try {
       await fn();
     } catch (e) {
@@ -165,7 +167,8 @@ export default function App() {
             type="button"
             onClick={() => {
               setToken(tokenInput);
-              setMsg("Token saved in this browser.");
+              setMsg(null);
+              setInfo("Token saved in this browser.");
             }}
             style={btnSecondary}
           >
@@ -191,8 +194,14 @@ export default function App() {
           disabled={busy}
           onClick={() =>
             run(async () => {
-              const d = await api.discover();
-              setDevices(d);
+              const result = await api.discover();
+              setDevices(result.devices);
+              setInfo(
+                result.discovered_this_run > 0
+                  ? `Discovery finished: ${result.discovered_this_run} device(s) responded this scan.`
+                  : result.message ||
+                      "Discovery finished: no SSDP replies this scan.",
+              );
               await load();
             })
           }
@@ -247,6 +256,23 @@ export default function App() {
           </button>
         </div>
       </section>
+
+      {info && (
+        <div
+          style={{
+            marginBottom: "1rem",
+            padding: "0.55rem 0.85rem",
+            background: "#1e2a3d",
+            borderRadius: 6,
+            color: "#c5d4f0",
+            border: "1px solid #2a4060",
+            fontSize: "0.92rem",
+            lineHeight: 1.45,
+          }}
+        >
+          {info}
+        </div>
+      )}
 
       {msg && (
         <div

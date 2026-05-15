@@ -22,6 +22,14 @@ class DeviceOut(BaseModel):
     last_error: str | None = None
 
 
+class DiscoverOut(BaseModel):
+    """Result of POST /api/discover (SSDP scan + merge into SQLite)."""
+
+    devices: list[DeviceOut]
+    discovered_this_run: int
+    message: str | None = None
+
+
 class ManualDeviceIn(BaseModel):
     ip: str = Field(..., description="IPv4 address of the WeMo on your LAN")
     name: str | None = Field(None, description="Optional friendly name override")

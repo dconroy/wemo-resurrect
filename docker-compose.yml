@@ -12,6 +12,7 @@ services:
       WEMO_DATABASE_PATH: ${WEMO_DATABASE_PATH:-/data/wemo_dashboard.db}
       WEMO_LOG_LEVEL: ${WEMO_LOG_LEVEL:-INFO}
       WEMO_ADMIN_PASSWORD: ${WEMO_ADMIN_PASSWORD:-}
+      WEMO_DISCOVERY_SSDP_TIMEOUT: ${WEMO_DISCOVERY_SSDP_TIMEOUT:-15}
     volumes:
       - wemo-data:/data
     restart: unless-stopped

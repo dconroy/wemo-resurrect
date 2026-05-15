@@ -38,9 +38,21 @@ Then open **http://127.0.0.1:8765/** on the same machine, or use your host’s L
 
 The image builds the React app and bakes it into the container; SQLite lives in the **`wemo-data`** volume (path inside the container defaults to `/data/wemo_dashboard.db`).
 
+### Docker Desktop on Mac (reach the dashboard from your LAN)
+
+1. From the repo root: `cp .env.example .env` (optional), then **`docker compose up --build`**.
+2. The compose file publishes **`8765`** on your Mac. Other devices use **`http://<your-mac-lan-ip>:8765`** (same Wi‑Fi as the Mac). Find the IP under **System Settings → Network**, or run `ipconfig getifaddr en0` (often Wi‑Fi).
+3. If the Mac firewall blocks inbound connections, allow **Docker** / **com.docker.backend** for port **8765**, or temporarily allow incoming for local testing.
+4. **SSDP “Discover devices”** from inside Docker on Mac often still finds **nothing** (multicast + Docker Desktop limits). That is normal. Use **Add by IP** with each WeMo’s **IPv4**; **on/off** and schedules use direct HTTP to the plug and usually work fine once the device is saved.
+5. **`docker-compose.host-network.yml`** does **not** give real Linux-style host networking on Mac; Docker Desktop ignores it for SSDP. For reliable discovery without “Add by IP”, run **`uvicorn` on the Mac host** (see “Optional: local development”) instead of Docker.
+
 ### Docker notes
 
-- **WeMo discovery from a container** can be finicky on some hosts (multicast / bridge networking). If discovery finds nothing, use **Add by IP** in the UI; on Linux you can experiment with `network_mode: host` (not supported the same way on Docker Desktop for Mac).
+- **SSDP discovery inside Docker** often sees **zero devices** because multicast does not cross the default bridge network the same way as on your host LAN. The UI now shows an explicit message after each scan. Mitigations: use **Add by IP**, or on **Linux** run with host networking:
+  ```bash
+  docker compose -f docker-compose.yml -f docker-compose.host-network.yml up --build
+  ```
+  (`docker-compose.host-network.yml` is in the repo root.) Host networking behaves differently on **Docker Desktop for Mac/Windows**; prefer **Add by IP** there if discovery is empty.
 - **Never** expose port 8765 directly to the public Internet.
 
 ## Configuration (environment variables)
@@ -52,6 +64,7 @@ Set these in a **`.env`** file next to `docker-compose.yml` (Compose uses it for
 | `WEMO_DATABASE_PATH` | `/data/wemo_dashboard.db` | SQLite path **inside the container** (backed by the `wemo-data` volume). |
 | `WEMO_LOG_LEVEL` | `INFO` | Python log level. |
 | `WEMO_ADMIN_PASSWORD` | _(empty)_ | If set, **all** `/api/*` routes except `GET /api/health` require `Authorization: Bearer <password>`. |
+| `WEMO_DISCOVERY_SSDP_TIMEOUT` | `15` in compose (`12` in `.env.example`) | Seconds to listen for SSDP replies during discovery (3–120). |
 
 When running **without** Docker (`uvicorn` locally), you can also use:
 
@@ -96,7 +109,7 @@ If you use the Vite dev server with hot reload, that is a **second** terminal (`
 | --- | --- | --- |
 | `GET` | `/api/health` | Liveness check. |
 | `GET` | `/api/devices` | List stored devices. |
-| `POST` | `/api/discover` | Run SSDP discovery and merge into SQLite. |
+| `POST` | `/api/discover` | Returns `{ devices, discovered_this_run, message }`. SSDP often returns 0 devices inside Docker (see README). |
 | `POST` | `/api/devices/manual` | Body: `{ "ip": "…", "name": "…?" }`. |
 | `GET` | `/api/devices/{id}/status` | Poll live state. |
 | `POST` | `/api/devices/{id}/on` | Turn on. |
@@ -119,7 +132,7 @@ pytest
 
 - `backend/app/` — FastAPI app, SQLite access, `wemo_client.py`, scheduler.
 - `frontend/` — Vite + React dashboard.
-- `Dockerfile` / `docker-compose.yml` — single container serving API + static UI.
+- `Dockerfile` / `docker-compose.yml` / `docker-compose.host-network.yml` — single container serving API + static UI; optional Linux host network for SSDP.
 
 ## Troubleshooting
 

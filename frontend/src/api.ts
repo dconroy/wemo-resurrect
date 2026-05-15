@@ -29,6 +29,12 @@ async function apiFetch(path: string, init?: RequestInit) {
     } catch {
       /* ignore */
     }
+    if (res.status === 401) {
+      detail =
+        detail && detail.length > 5
+          ? detail
+          : "Unauthorized (401). Set “Admin token” to match WEMO_ADMIN_PASSWORD, then Save token.";
+    }
     throw new Error(detail || `HTTP ${res.status}`);
   }
   if (res.status === 204) {
@@ -67,10 +73,16 @@ export type Schedule = {
   updated_at: string;
 };
 
+export type DiscoverResult = {
+  devices: Device[];
+  discovered_this_run: number;
+  message: string | null;
+};
+
 export const api = {
   health: () => apiFetch("/api/health") as Promise<{ status: string }>,
   listDevices: () => apiFetch("/api/devices") as Promise<Device[]>,
-  discover: () => apiFetch("/api/discover", { method: "POST" }) as Promise<Device[]>,
+  discover: () => apiFetch("/api/discover", { method: "POST" }) as Promise<DiscoverResult>,
   manualDevice: (ip: string, name?: string) =>
     apiFetch("/api/devices/manual", {
       method: "POST",
